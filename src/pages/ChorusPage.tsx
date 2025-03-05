@@ -1,36 +1,32 @@
 
-import { useState } from 'react';
-import { ArrowLeft, Mic, Play, Square } from 'lucide-react';
+import { ArrowLeft, Mic, Play, Square, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { practiceExamples, getAudioForPhrase } from '@/services/speechService';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const ChorusPage = () => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [feedback, setFeedback] = useState<null | {
-    pronunciation: number;
-    fluency: number;
-    rhythm: number;
-    overall: number;
-    suggestions: string[];
-  }>(null);
-
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    
-    // Simulate feedback after stopping recording
-    if (isRecording) {
-      setFeedback({
-        pronunciation: 85,
-        fluency: 78,
-        rhythm: 92,
-        overall: 85,
-        suggestions: [
-          "Try slowing down on complex words",
-          "Pay attention to the 'th' sound",
-          "Great job with intonation patterns"
-        ]
-      });
-    }
+  const { 
+    isRecording, 
+    recordingTime,
+    feedback, 
+    isProcessing,
+    startRecording, 
+    stopRecording,
+    resetRecording
+  } = useVoiceRecording();
+  
+  const { toast } = useToast();
+  
+  const playAudio = (phrase: string) => {
+    // In a real implementation, this would play the audio
+    // For now, we'll just show a toast
+    toast({
+      title: "Playing Audio",
+      description: `"${phrase.substring(0, 30)}..."`,
+    });
   };
 
   return (
@@ -58,8 +54,10 @@ const ChorusPage = () => {
                 <div className="bg-edumate-50 rounded-xl p-6 text-center">
                   <p className="text-lg text-edumate-700 mb-4">
                     {isRecording 
-                      ? "Listening... Speak clearly into your microphone" 
-                      : "Press the microphone button to start speaking"}
+                      ? `Recording: ${recordingTime}s` 
+                      : isProcessing
+                        ? "Processing your speech..."
+                        : "Press the microphone button to start speaking"}
                   </p>
                   <div className={`w-full h-24 rounded-lg bg-white flex items-center justify-center ${isRecording ? 'animate-pulse' : ''}`}>
                     {isRecording ? (
@@ -75,6 +73,11 @@ const ChorusPage = () => {
                           ></div>
                         ))}
                       </div>
+                    ) : isProcessing ? (
+                      <div className="flex flex-col items-center">
+                        <RefreshCw className="w-8 h-8 text-edumate-500 animate-spin mb-2" />
+                        <span className="text-slate-500">Analyzing your speech...</span>
+                      </div>
                     ) : (
                       <span className="text-slate-400">Audio visualization will appear here</span>
                     )}
@@ -82,32 +85,44 @@ const ChorusPage = () => {
                 </div>
               </div>
               
-              <div className="flex justify-center mb-8">
-                <button
-                  onClick={toggleRecording}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                    isRecording 
-                      ? 'bg-red-500 hover:bg-red-600' 
-                      : 'bg-edumate-500 hover:bg-edumate-600'
-                  }`}
-                >
-                  {isRecording ? (
-                    <Square className="w-6 h-6 text-white" />
-                  ) : (
-                    <Mic className="w-6 h-6 text-white" />
-                  )}
-                </button>
+              <div className="flex justify-center space-x-4 mb-8">
+                {feedback ? (
+                  <Button 
+                    variant="outline" 
+                    onClick={resetRecording}
+                    className="px-6"
+                  >
+                    Try Again
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+                      isRecording 
+                        ? 'bg-red-500 hover:bg-red-600' 
+                        : 'bg-edumate-500 hover:bg-edumate-600'
+                    }`}
+                    disabled={isProcessing}
+                  >
+                    {isRecording ? (
+                      <Square className="w-6 h-6 text-white" />
+                    ) : (
+                      <Mic className="w-6 h-6 text-white" />
+                    )}
+                  </Button>
+                )}
               </div>
               
               <div className="w-full">
                 <h3 className="text-xl font-medium text-edumate-900 mb-4">Try these examples:</h3>
                 <div className="space-y-3">
-                  {["The quick brown fox jumps over the lazy dog.", 
-                    "She sells seashells by the seashore.", 
-                    "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"].map((phrase, index) => (
+                  {practiceExamples.map((phrase, index) => (
                     <div key={index} className="bg-white p-4 rounded-lg border border-slate-100 hover:border-edumate-200 transition-colors">
                       <p className="text-slate-700">{phrase}</p>
-                      <button className="flex items-center text-sm text-edumate-500 mt-2 hover:text-edumate-600 transition-colors">
+                      <button 
+                        className="flex items-center text-sm text-edumate-500 mt-2 hover:text-edumate-600 transition-colors"
+                        onClick={() => playAudio(phrase)}
+                      >
                         <Play className="w-4 h-4 mr-1" />
                         Listen
                       </button>
