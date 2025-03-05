@@ -21,11 +21,13 @@ export const useSpeechError = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
   
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setCurrentStream(stream);
       setIsRecording(true);
       
       // In a real app, we would record the audio here
@@ -37,7 +39,7 @@ export const useSpeechError = () => {
       
       // For demo purposes, automatically stop after 5 seconds
       setTimeout(() => {
-        stopRecording(stream);
+        handleStopRecording();
       }, 5000);
       
     } catch (error) {
@@ -49,18 +51,23 @@ export const useSpeechError = () => {
     }
   };
   
-  const stopRecording = async (stream?: MediaStream) => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+  const handleStopRecording = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      setCurrentStream(null);
     }
     
     setIsRecording(false);
     setIsProcessing(true);
     
+    // Create a mock blob - in a real app, this would be the recorded audio
+    const mockBlob = new Blob([], { type: 'audio/wav' });
+    processRecording(mockBlob);
+  };
+  
+  const processRecording = async (audioBlob: Blob) => {
     try {
-      // Create a mock blob - in a real app, this would be the recorded audio
-      const mockBlob = new Blob([], { type: 'audio/wav' });
-      const result = await analyzeErrors(mockBlob);
+      const result = await analyzeErrors(audioBlob);
       setAnalysis(result);
       
       // Default select first error word
@@ -94,7 +101,7 @@ export const useSpeechError = () => {
     isRecording,
     isProcessing,
     startRecording,
-    stopRecording,
+    stopRecording: handleStopRecording,
     selectWord,
     resetAnalysis
   };
