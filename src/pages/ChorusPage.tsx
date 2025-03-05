@@ -1,10 +1,15 @@
-
-import { ArrowLeft, Mic, Play, Square, RefreshCw, Volume2 } from 'lucide-react';
+import { ArrowLeft, Mic, Play, Square, RefreshCw, Volume2, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Header from '@/components/Header';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { practiceExamples, getAudioForPhrase, availableVoices } from '@/services/speechService';
+import { 
+  practiceExamples, 
+  getGoogleTTSAudio, 
+  fetchAvailableVoices,
+  Voice,
+  googleVoices
+} from '@/services/speechService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from '@/components/ui/slider';
@@ -24,14 +29,57 @@ const ChorusPage = () => {
   
   const { toast } = useToast();
   
-  // New state variables for text-to-speech functionality
+  // State variables for text-to-speech functionality
   const [inputText, setInputText] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState(availableVoices[0].id);
+  const [selectedVoice, setSelectedVoice] = useState("");
   const [speechSpeed, setSpeechSpeed] = useState(1.0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>("");
   
-  // Function to play the text with selected voice and speed
-  const playText = () => {
+  // State for available voices from the API
+  const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(true);
+  
+  // Add audio element reference
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Fetch available voices when component mounts
+  useEffect(() => {
+    const getVoices = async () => {
+      try {
+        setIsLoadingVoices(true);
+        const voices = await fetchAvailableVoices();
+        setAvailableVoices(voices);
+        
+        // Set a default voice if we got results and don't have one selected yet
+        if (voices.length > 0 && !selectedVoice) {
+          // Try to select a US English voice by default
+          const defaultVoice = voices.find(v => v.id.includes('en-US')) || voices[0];
+          setSelectedVoice(defaultVoice.id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch voices:', err);
+        toast({
+          title: "Couldn't load voices",
+          description: "Using default voice options instead",
+          variant: "destructive"
+        });
+        // Use the mock voices as fallback
+        setAvailableVoices(googleVoices as Voice[]);
+        if (googleVoices.length > 0 && !selectedVoice) {
+          setSelectedVoice(googleVoices[0].id);
+        }
+      } finally {
+        setIsLoadingVoices(false);
+      }
+    };
+    
+    getVoices();
+  }, [selectedVoice]);
+  
+  // Updated function to play the text with selected voice and speed using Flask backend
+  const playText = async () => {
     if (!inputText.trim()) {
       toast({
         title: "Empty Text",
@@ -41,20 +89,61 @@ const ChorusPage = () => {
       return;
     }
     
+    if (!selectedVoice) {
+      toast({
+        title: "Voice Required",
+        description: "Please select a voice first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsPlaying(true);
+    setIsLoading(true);
+    setError("");
     
-    // Get the selected voice object
-    const voice = availableVoices.find(v => v.id === selectedVoice);
-    
-    toast({
-      title: "Playing Audio",
-      description: `Reading with ${voice?.name} voice at ${speechSpeed}x speed`,
-    });
-    
-    // Simulate text to speech playback
-    setTimeout(() => {
+    try {
+      // Get the selected voice object
+      const voice = availableVoices.find(v => v.id === selectedVoice);
+      
+      toast({
+        title: "Generating Speech",
+        description: `Using ${voice?.name || 'selected voice'} at ${speechSpeed}x speed`,
+      });
+      
+      // Call the backend TTS API
+      const audioData = await getGoogleTTSAudio({
+        text: inputText,
+        voiceId: selectedVoice,
+        speed: speechSpeed,
+      });
+      
+      // Create a blob from the array buffer
+      const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Play the audio
+      if (audioRef.current) {
+        audioRef.current.src = audioUrl;
+        await audioRef.current.play()
+          .catch(err => {
+            console.error('Error playing audio:', err);
+            setError('Failed to play audio. Please try again.');
+          });
+        
+        // Clean up blob URL when audio finishes playing
+        audioRef.current.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          setIsPlaying(false);
+        };
+      }
+    } catch (err) {
+      console.error('Error with TTS:', err);
+      setError('Failed to generate speech. Please try again.');
       setIsPlaying(false);
-    }, 3000); // Simulate 3 seconds of playback
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Function to play provided examples
@@ -67,10 +156,34 @@ const ChorusPage = () => {
     });
   };
 
+  // Create filtered voice lists by accent for better organization
+  const organizeVoicesByAccent = () => {
+    const accents = Array.from(new Set(availableVoices.map(voice => voice.accent)));
+    
+    // Sort the accents with English variants first
+    accents.sort((a, b) => {
+      if (a === "American") return -1;
+      if (b === "American") return 1;
+      if (a === "British") return -1;
+      if (b === "British") return 1;
+      return a.localeCompare(b);
+    });
+    
+    return accents.map(accent => ({
+      accent,
+      voices: availableVoices.filter(voice => voice.accent === accent)
+    }));
+  };
+
+  const voicesByAccent = organizeVoicesByAccent();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-50">
       <Header />
       <main className="pt-24 px-6">
+        {/* Hidden audio element for playback */}
+        <audio ref={audioRef} className="hidden" />
+        
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <Link to="/" className="inline-flex items-center text-edumate-600 hover:text-edumate-700 transition-colors">
@@ -100,15 +213,30 @@ const ChorusPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Voice</label>
-                  <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                  <Select 
+                    value={selectedVoice} 
+                    onValueChange={setSelectedVoice}
+                    disabled={isLoadingVoices}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select voice" />
+                      {isLoadingVoices ? (
+                        <span className="text-slate-500">Loading voices...</span>
+                      ) : (
+                        <SelectValue placeholder="Select voice" />
+                      )}
                     </SelectTrigger>
                     <SelectContent>
-                      {availableVoices.map((voice) => (
-                        <SelectItem key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.accent})
-                        </SelectItem>
+                      {voicesByAccent.map((group) => (
+                        <div key={group.accent}>
+                          <div className="px-2 py-1.5 text-sm font-medium text-slate-900 bg-slate-100">
+                            {group.accent}
+                          </div>
+                          {group.voices.map((voice) => (
+                            <SelectItem key={voice.id} value={voice.id}>
+                              {voice.name} ({voice.gender})
+                            </SelectItem>
+                          ))}
+                        </div>
                       ))}
                     </SelectContent>
                   </Select>
@@ -120,8 +248,8 @@ const ChorusPage = () => {
                   </label>
                   <Slider 
                     value={[speechSpeed]} 
-                    min={0.5} 
-                    max={2.0} 
+                    min={0.25} 
+                    max={4.0} 
                     step={0.1}
                     onValueChange={(value) => setSpeechSpeed(value[0])} 
                     className="my-4"
@@ -129,12 +257,25 @@ const ChorusPage = () => {
                 </div>
               </div>
               
+              {/* Show error message if there is one */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
+                  <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+              
               <Button
                 onClick={playText}
-                disabled={isPlaying || !inputText.trim()}
+                disabled={isPlaying || isLoading || !inputText.trim() || !selectedVoice}
                 className="self-start mb-8"
               >
-                {isPlaying ? (
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : isPlaying ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                     Playing...
@@ -176,18 +317,18 @@ const ChorusPage = () => {
                       {Object.entries(feedback)
                         .filter(([key]) => key !== 'suggestions')
                         .map(([key, value]) => (
-                        <div key={key} className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-700 capitalize">{key}</span>
-                            <span className="text-edumate-700 font-medium">{value}%</span>
+                          <div key={key} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-700 capitalize">{key}</span>
+                              <span className="text-edumate-700 font-medium">{value as number}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-2">
+                              <div 
+                                className="bg-edumate-500 h-2 rounded-full" 
+                                style={{ width: `${value}%` }}
+                              ></div>
+                            </div>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-2">
-                            <div 
-                              className="bg-edumate-500 h-2 rounded-full" 
-                              style={{ width: `${value}%` }}
-                            ></div>
-                          </div>
-                        </div>
                       ))}
                     </div>
                     

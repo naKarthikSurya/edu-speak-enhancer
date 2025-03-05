@@ -1,4 +1,3 @@
-
 // Mock data for speech analysis
 interface SpeechFeedback {
   pronunciation: number;
@@ -65,3 +64,81 @@ export const getAudioForPhrase = (
   // For now, we'll just return a mock URL
   return `https://api.example.com/tts?text=${encodeURIComponent(phrase)}&voice=${voiceId}&speed=${speed}`;
 };
+
+// Google TTS API options
+export interface GoogleTTSOptions {
+  text: string;
+  voiceId: string; // The Google voice ID
+  speed: number;   // Speech rate between 0.25 and 4.0
+  pitch?: number;  // Optional pitch adjustment (-20.0 to 20.0)
+  languageCode?: string; // Default to 'en-US' if not specified
+}
+
+// Function to call Google TTS API using our Flask backend
+export const getGoogleTTSAudio = async (options: GoogleTTSOptions): Promise<ArrayBuffer> => {
+  try {
+    // Point to the Flask backend endpoint
+    const endpoint = '/api/tts';
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: options.text,
+        voiceId: options.voiceId,
+        speed: options.speed,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`TTS API error: ${response.status}`);
+    }
+
+    return await response.arrayBuffer();
+  } catch (error) {
+    console.error('Error calling TTS API:', error);
+    throw error;
+  }
+};
+
+// Function to fetch available voices from the backend
+export const fetchAvailableVoices = async (): Promise<Voice[]> => {
+  try {
+    const response = await fetch('/api/voices');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch voices: ${response.status}`);
+    }
+    
+    const voices = await response.json();
+    return voices;
+  } catch (error) {
+    console.error('Error fetching available voices:', error);
+    // Return the mock voices as fallback
+    return googleVoices.map(voice => ({
+      id: voice.id,
+      name: voice.name,
+      gender: voice.gender.toLowerCase() as 'male' | 'female',
+      accent: voice.accent
+    }));
+  }
+};
+
+// Map of Google TTS voices - these would come from the actual Google API
+export const googleVoices = [
+  { id: 'en-US-Wavenet-A', name: 'Wavenet A', accent: 'American', gender: 'Female' },
+  { id: 'en-US-Wavenet-B', name: 'Wavenet B', accent: 'American', gender: 'Male' },
+  { id: 'en-US-Wavenet-C', name: 'Wavenet C', accent: 'American', gender: 'Female' },
+  { id: 'en-US-Wavenet-D', name: 'Wavenet D', accent: 'American', gender: 'Male' },
+  { id: 'en-US-Wavenet-E', name: 'Wavenet E', accent: 'American', gender: 'Female' },
+  { id: 'en-US-Wavenet-F', name: 'Wavenet F', accent: 'American', gender: 'Female' },
+  { id: 'en-GB-Wavenet-A', name: 'Wavenet A', accent: 'British', gender: 'Female' },
+  { id: 'en-GB-Wavenet-B', name: 'Wavenet B', accent: 'British', gender: 'Male' },
+  { id: 'en-GB-Wavenet-C', name: 'Wavenet C', accent: 'British', gender: 'Female' },
+  { id: 'en-AU-Wavenet-A', name: 'Wavenet A', accent: 'Australian', gender: 'Female' },
+  { id: 'en-AU-Wavenet-B', name: 'Wavenet B', accent: 'Australian', gender: 'Male' },
+  { id: 'en-IN-Wavenet-A', name: 'Wavenet A', accent: 'Indian', gender: 'Female' },
+  { id: 'en-IN-Wavenet-B', name: 'Wavenet B', accent: 'Indian', gender: 'Male' },
+];
