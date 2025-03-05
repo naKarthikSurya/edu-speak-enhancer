@@ -1,7 +1,8 @@
 
 import { useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import FeatureCard from './FeatureCard';
-import { Mic, MessageSquare, FileText, BookOpen } from 'lucide-react';
+import { Mic, MessageSquare, FileText, BookOpen, ArrowRight } from 'lucide-react';
 
 const FeaturesSection = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,25 +33,29 @@ const FeaturesSection = () => {
       title: "Chorus",
       description: "Enhance your pronunciation and fluency with real-time analysis and feedback as you speak.",
       icon: <Mic size={24} />,
-      iconClassName: "bg-edumate-50 text-edumate-500"
+      iconClassName: "bg-edumate-50 text-edumate-500",
+      link: "/chorus"
     },
     {
       title: "Speech Error Analysis",
       description: "Detect subtle mispronunciations and receive context-specific corrective suggestions.",
       icon: <MessageSquare size={24} />,
-      iconClassName: "bg-blue-50 text-blue-500"
+      iconClassName: "bg-blue-50 text-blue-500",
+      link: "/speech-error"
     },
     {
       title: "Grammar Check",
       description: "Convert handwritten notes to text and receive detailed grammatical corrections and improvements.",
       icon: <FileText size={24} />,
-      iconClassName: "bg-green-50 text-green-600"
+      iconClassName: "bg-green-50 text-green-600",
+      link: "/grammar-check"
     },
     {
       title: "Concept Summarization",
       description: "Distill lengthy texts into concise, customizable summaries for efficient learning.",
       icon: <BookOpen size={24} />,
-      iconClassName: "bg-purple-50 text-purple-600"
+      iconClassName: "bg-purple-50 text-purple-600",
+      link: "/concept-summarization"
     }
   ];
 
@@ -72,12 +77,15 @@ const FeaturesSection = () => {
               className="animate-on-scroll opacity-0 translate-y-10 transition-all duration-1000"
               style={{ transitionDelay: `${200 + (index * 100)}ms` }}
             >
-              <FeatureCard
-                title={feature.title}
-                description={feature.description}
-                icon={feature.icon}
-                iconClassName={feature.iconClassName}
-              />
+              <Link to={feature.link} className="block h-full">
+                <FeatureCard
+                  title={feature.title}
+                  description={feature.description}
+                  icon={feature.icon}
+                  iconClassName={feature.iconClassName}
+                  className="h-full transition-transform hover:translate-y-[-4px]"
+                />
+              </Link>
             </div>
           ))}
         </div>
@@ -117,9 +125,15 @@ const FeaturesSection = () => {
                   </li>
                 ))}
               </ul>
-              <button className="px-6 py-3 bg-edumate-500 text-white rounded-lg font-medium hover:bg-edumate-600 transition-all shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-edumate-500 focus:ring-offset-2">
-                Learn More
-              </button>
+              <div className="flex space-x-4">
+                <Link to="/chorus" className="inline-flex items-center px-6 py-3 bg-edumate-500 text-white rounded-lg font-medium hover:bg-edumate-600 transition-all shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-edumate-500 focus:ring-offset-2">
+                  Try It Now
+                </Link>
+                <Link to="/#how-it-works" className="inline-flex items-center px-6 py-3 text-edumate-700 rounded-lg font-medium border border-edumate-200 hover:border-edumate-300 transition-all">
+                  Learn More
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Link>
+              </div>
             </div>
             <div className="rounded-xl overflow-hidden bg-edumate-50 aspect-square lg:aspect-auto lg:h-full relative">
               <div className="absolute inset-0 bg-gradient-to-tr from-edumate-100 to-transparent opacity-70"></div>

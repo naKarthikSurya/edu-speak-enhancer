@@ -20,7 +20,7 @@ const FeatureCard = ({
   return (
     <div 
       className={cn(
-        "feature-card group",
+        "feature-card group relative",
         className
       )}
     >
@@ -36,6 +36,22 @@ const FeatureCard = ({
       <p className="text-slate-600 leading-relaxed text-balance">
         {description}
       </p>
+      <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="20" 
+          height="20" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          className="text-edumate-500"
+        >
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </div>
     </div>
   );
 };
