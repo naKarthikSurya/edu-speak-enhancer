@@ -1,52 +1,66 @@
 
-import { useState } from 'react';
 import { ArrowLeft, FileText, Download, Copy, ChevronsDown, ChevronsUp, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
+import { useConceptSummarization } from '@/hooks/useConceptSummarization';
+import { CompressionLevel } from '@/services/conceptService';
+import { useToast } from '@/hooks/use-toast';
 
 const ConceptSummarizationPage = () => {
-  const [inputText, setInputText] = useState(`Photosynthesis is the process by which plants, algae, and certain bacteria convert light energy, usually from the sun, into chemical energy in the form of glucose or other sugars. This process occurs in the chloroplasts of plant cells, specifically within structures called thylakoids which contain the pigment chlorophyll. Chlorophyll absorbs light energy, primarily from the blue and red parts of the electromagnetic spectrum, initiating the photosynthetic process.
-
-The overall reaction of photosynthesis can be summarized by the chemical equation: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂. This indicates that carbon dioxide and water, in the presence of light energy, are converted into glucose and oxygen.
-
-Photosynthesis occurs in two main stages: the light-dependent reactions and the light-independent reactions (Calvin cycle). In the light-dependent reactions, which take place in the thylakoid membranes, light energy is converted into chemical energy in the form of ATP and NADPH. Water molecules are split, releasing oxygen as a byproduct. In the Calvin cycle, which occurs in the stroma of the chloroplast, the ATP and NADPH produced during the light-dependent reactions are used to convert carbon dioxide into glucose.
-
-The significance of photosynthesis extends beyond plant nutrition. It plays a crucial role in the global carbon cycle by removing carbon dioxide from the atmosphere and releasing oxygen. This process is vital for maintaining atmospheric oxygen levels necessary for aerobic organisms, including humans. Additionally, photosynthesis is the primary way in which energy enters many ecosystems, as plants and other photosynthetic organisms form the base of food chains and webs.
-
-Factors affecting the rate of photosynthesis include light intensity, carbon dioxide concentration, temperature, and water availability. Understanding these factors is important in agriculture for optimizing crop yields and in ecology for predicting how changes in environmental conditions might impact ecosystem productivity.`);
+  const { 
+    inputText, 
+    setInputText,
+    summary,
+    keyConcepts,
+    learningEnhancement,
+    compressionLevel,
+    isProcessing,
+    isGenerated,
+    generateSummary,
+    changeCompressionLevel
+  } = useConceptSummarization();
   
-  const [summarizationLevel, setSummarizationLevel] = useState('medium');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
   
-  const summaryText = {
-    high: "Photosynthesis converts light energy into chemical energy (glucose) in plants and some microorganisms. The process occurs in chloroplasts, following the equation 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂. It involves light-dependent reactions (producing ATP, NADPH, and O₂) and the Calvin cycle (producing glucose). Photosynthesis is essential for atmospheric oxygen, the carbon cycle, and food chains.",
-    medium: "Photosynthesis is the process where plants and certain microorganisms convert light energy into chemical energy as glucose. Occurring in chloroplasts containing chlorophyll, it follows the equation: 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂. The process has two stages: light-dependent reactions (producing ATP, NADPH, and oxygen) and the Calvin cycle (using ATP and NADPH to convert CO₂ to glucose). Photosynthesis maintains atmospheric oxygen levels, removes CO₂, and forms the base of food chains. Factors affecting its rate include light intensity, CO₂ concentration, temperature, and water availability.",
-    low: "Photosynthesis is the process by which plants, algae, and certain bacteria convert light energy into chemical energy in the form of glucose. This occurs in chloroplasts containing chlorophyll, which absorbs light energy primarily from blue and red spectrum parts. The chemical equation is 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂. The process has two stages: light-dependent reactions in thylakoid membranes (producing ATP, NADPH, and oxygen) and the Calvin cycle in the stroma (using ATP and NADPH to convert carbon dioxide to glucose). Photosynthesis is crucial for removing CO₂ from the atmosphere, maintaining oxygen levels for aerobic organisms, and providing energy to ecosystems as the base of food chains. Factors affecting photosynthesis rates include light intensity, carbon dioxide concentration, temperature, and water availability, which are important considerations in agriculture and ecology."
+  const handleCopy = () => {
+    if (summary) {
+      navigator.clipboard.writeText(summary);
+      toast({
+        title: "Copied to Clipboard",
+        description: "Summary has been copied to your clipboard."
+      });
+    }
+  };
+  
+  const handleDownload = () => {
+    if (summary) {
+      const element = document.createElement("a");
+      const file = new Blob([summary], {type: 'text/plain'});
+      element.href = URL.createObjectURL(file);
+      element.download = "summary.txt";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      toast({
+        title: "Download Started",
+        description: "Your summary is being downloaded as a text file."
+      });
+    }
+  };
+  
+  const handleFileUpload = () => {
+    // Simulate file selection with a mock action
+    toast({
+      title: "File Upload",
+      description: "Document upload would be processed here in a real implementation."
+    });
   };
   
   const summarizeLevels = [
-    { key: 'high', label: 'High Compression', icon: <ChevronsUp className="w-4 h-4" /> },
-    { key: 'medium', label: 'Medium Compression', icon: null },
-    { key: 'low', label: 'Low Compression', icon: <ChevronsDown className="w-4 h-4" /> }
-  ];
-  
-  const handleProcess = () => {
-    if (inputText.trim() === '') return;
-    
-    setIsProcessing(true);
-    // Simulate processing delay
-    setTimeout(() => {
-      setIsProcessing(false);
-    }, 1500);
-  };
-  
-  const keyConcepts = [
-    "Photosynthesis converts light energy to chemical energy",
-    "Occurs in chloroplasts containing chlorophyll",
-    "Equation: 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂",
-    "Two stages: light-dependent reactions and Calvin cycle",
-    "Crucial for oxygen production and carbon fixation",
-    "Forms the base of most food chains"
+    { key: 'high' as CompressionLevel, label: 'High Compression', icon: <ChevronsUp className="w-4 h-4" /> },
+    { key: 'medium' as CompressionLevel, label: 'Medium Compression', icon: null },
+    { key: 'low' as CompressionLevel, label: 'Low Compression', icon: <ChevronsDown className="w-4 h-4" /> }
   ];
 
   return (
@@ -74,7 +88,14 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-medium text-edumate-900">Input Text</h3>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors" title="Upload document">
+                    <button 
+                      onClick={handleFileUpload}
+                      disabled={isProcessing}
+                      className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                        isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      title="Upload document"
+                    >
                       <FileText className="w-5 h-5" />
                     </button>
                   </div>
@@ -83,7 +104,10 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  className="w-full p-4 min-h-[300px] rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-edumate-500 text-slate-800"
+                  disabled={isProcessing}
+                  className={`w-full p-4 min-h-[300px] rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-edumate-500 text-slate-800 ${
+                    isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   placeholder="Paste your text here for summarization..."
                 ></textarea>
                 
@@ -92,7 +116,7 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                     {inputText.length} characters
                   </div>
                   <button
-                    onClick={handleProcess}
+                    onClick={generateSummary}
                     disabled={isProcessing || inputText.trim() === ''}
                     className={`px-4 py-2 rounded-lg font-medium ${
                       isProcessing || inputText.trim() === ''
@@ -109,19 +133,44 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-medium text-edumate-900">Summary</h3>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors" title="Copy summary">
+                    <button 
+                      onClick={handleCopy}
+                      disabled={!isGenerated || isProcessing}
+                      className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                        !isGenerated || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      title="Copy summary"
+                    >
                       <Copy className="w-5 h-5" />
                     </button>
-                    <button className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors" title="Download summary">
+                    <button 
+                      onClick={handleDownload}
+                      disabled={!isGenerated || isProcessing}
+                      className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                        !isGenerated || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      title="Download summary"
+                    >
                       <Download className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
                 
                 <div className="bg-white p-6 rounded-lg border border-slate-100 min-h-[200px]">
-                  <p className="text-slate-800 leading-relaxed">
-                    {summaryText[summarizationLevel as keyof typeof summaryText]}
-                  </p>
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center h-[188px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-edumate-500"></div>
+                    </div>
+                  ) : isGenerated ? (
+                    <p className="text-slate-800 leading-relaxed">
+                      {summary}
+                    </p>
+                  ) : (
+                    <div className="text-slate-400 flex flex-col items-center justify-center h-[188px] text-center">
+                      <FileText className="w-8 h-8 mb-3 text-slate-300" />
+                      <p>Click "Summarize" to generate a summary</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-6">
@@ -130,9 +179,12 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                     {summarizeLevels.map(level => (
                       <button
                         key={level.key}
-                        onClick={() => setSummarizationLevel(level.key)}
+                        onClick={() => changeCompressionLevel(level.key)}
+                        disabled={isProcessing}
                         className={`px-4 py-2 rounded-lg flex items-center justify-center transition-colors ${
-                          summarizationLevel === level.key
+                          isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                        } ${
+                          compressionLevel === level.key
                             ? 'bg-edumate-100 text-edumate-700 border border-edumate-200'
                             : 'bg-white text-slate-600 border border-slate-200 hover:border-edumate-200'
                         }`}
@@ -151,47 +203,72 @@ Factors affecting the rate of photosynthesis include light intensity, carbon dio
                 <div className="glass-panel p-8">
                   <h3 className="text-xl font-medium text-edumate-900 mb-6">Key Concepts</h3>
                   
-                  <div className="space-y-3">
-                    {keyConcepts.map((concept, index) => (
-                      <div key={index} className="flex items-start">
-                        <div className="flex-shrink-0 h-6 w-6 rounded-full bg-edumate-100 flex items-center justify-center mr-3 mt-0.5">
-                          <span className="text-edumate-600 text-xs font-medium">{index + 1}</span>
+                  {isProcessing ? (
+                    <div className="py-8 flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-edumate-500"></div>
+                    </div>
+                  ) : isGenerated ? (
+                    <div className="space-y-3">
+                      {keyConcepts.map((concept, index) => (
+                        <div key={index} className="flex items-start">
+                          <div className="flex-shrink-0 h-6 w-6 rounded-full bg-edumate-100 flex items-center justify-center mr-3 mt-0.5">
+                            <span className="text-edumate-600 text-xs font-medium">{index + 1}</span>
+                          </div>
+                          <p className="text-slate-700">{concept}</p>
                         </div>
-                        <p className="text-slate-700">{concept}</p>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-400">
+                      <p>Generate a summary to see key concepts</p>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="bg-edumate-50 rounded-lg p-6 border border-edumate-100">
-                  <div className="flex items-center text-edumate-800 mb-4">
-                    <BookOpen className="w-5 h-5 mr-2" />
-                    <h3 className="text-lg font-medium">Learning Enhancement</h3>
+                {isGenerated && (
+                  <div className="bg-edumate-50 rounded-lg p-6 border border-edumate-100">
+                    <div className="flex items-center text-edumate-800 mb-4">
+                      <BookOpen className="w-5 h-5 mr-2" />
+                      <h3 className="text-lg font-medium">Learning Enhancement</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <p className="text-slate-700 text-sm">
+                        Your summary focuses on the fundamental aspects, highlighting:
+                      </p>
+                      <ul className="space-y-2 text-sm">
+                        {learningEnhancement.focusPoints.map((point, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="flex-shrink-0 h-5 w-5 text-edumate-600 mr-2">•</span>
+                            <span className="text-slate-700">{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      
+                      {learningEnhancement.suggestedRelatedTopics.length > 0 && (
+                        <>
+                          <p className="text-slate-700 text-sm font-medium mt-2">
+                            Suggested related topics:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {learningEnhancement.suggestedRelatedTopics.map((topic, index) => (
+                              <span 
+                                key={index}
+                                className="bg-white px-3 py-1 rounded-full text-xs text-edumate-700 border border-edumate-200"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      
+                      <p className="text-slate-700 text-sm">
+                        Try adjusting the summarization level to focus on different aspects based on your learning needs.
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <p className="text-slate-700 text-sm">
-                      Your summary focuses on the fundamental process of photosynthesis, highlighting:
-                    </p>
-                    <ul className="space-y-2 text-sm">
-                      <li className="flex items-start">
-                        <span className="flex-shrink-0 h-5 w-5 text-edumate-600 mr-2">•</span>
-                        <span className="text-slate-700">The core chemical reaction and components</span>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="flex-shrink-0 h-5 w-5 text-edumate-600 mr-2">•</span>
-                        <span className="text-slate-700">The two-stage process (light-dependent and Calvin cycle)</span>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="flex-shrink-0 h-5 w-5 text-edumate-600 mr-2">•</span>
-                        <span className="text-slate-700">Ecological importance in oxygen production and as an energy source</span>
-                      </li>
-                    </ul>
-                    <p className="text-slate-700 text-sm">
-                      Try adjusting the summarization level to focus on different aspects based on your learning needs.
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

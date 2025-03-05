@@ -1,51 +1,43 @@
 
-import { useState } from 'react';
 import { ArrowLeft, FileText, Camera, CheckCircle, XCircle, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
+import { useGrammarCheck } from '@/hooks/useGrammarCheck';
+import { useToast } from '@/hooks/use-toast';
 
 const GrammarCheckPage = () => {
-  const [textInput, setTextInput] = useState("I have recieved your letter last week and I will response as soon as possible. Me and my team are working hardly on this project.");
-  const [isAnalyzed, setIsAnalyzed] = useState(true);
+  const { 
+    textInput, 
+    setTextInput, 
+    corrections, 
+    isAnalyzed, 
+    isProcessing,
+    analyzeText,
+    uploadImage,
+    correctedText
+  } = useGrammarCheck();
   
-  const corrections = [
-    { 
-      original: "recieved", 
-      corrected: "received", 
-      explanation: "The correct spelling follows the rule 'i before e except after c'." 
-    },
-    { 
-      original: "last week", 
-      corrected: "last week", 
-      explanation: "When referring to a completed action in the past, use the simple past tense ('received') rather than the present perfect ('have received')." 
-    },
-    { 
-      original: "response", 
-      corrected: "respond", 
-      explanation: "'Response' is a noun, while 'respond' is the verb form needed in this context." 
-    },
-    { 
-      original: "Me and my team", 
-      corrected: "My team and I", 
-      explanation: "When referring to yourself and others, place yourself last and use the subject pronoun 'I' rather than the object pronoun 'me'." 
-    },
-    { 
-      original: "hardly", 
-      corrected: "hard", 
-      explanation: "'Hardly' means 'barely' or 'scarcely', while 'hard' is the intended adverb meaning 'with great effort'." 
-    }
-  ];
-
+  const { toast } = useToast();
+  
   const handleImageUpload = () => {
-    // This would handle image upload and OCR processing in a real implementation
-    alert("Image upload and OCR feature would be implemented here");
+    // Simulate file selection with a mock file
+    const mockFile = new File([""], "sample-image.jpg", { type: "image/jpeg" });
+    uploadImage(mockFile);
   };
   
-  const analyzeText = () => {
-    setIsAnalyzed(true);
+  const handleCopyText = () => {
+    if (isAnalyzed) {
+      navigator.clipboard.writeText(correctedText());
+      toast({
+        title: "Copied to Clipboard",
+        description: "Corrected text has been copied to your clipboard."
+      });
+    }
   };
   
   const renderCorrectedText = () => {
+    if (!isAnalyzed) return null;
+    
     let text = textInput;
     
     // Apply corrections in reverse order to avoid messing up indices
@@ -97,13 +89,19 @@ const GrammarCheckPage = () => {
                   <div className="flex space-x-2">
                     <button 
                       onClick={handleImageUpload}
-                      className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors"
+                      disabled={isProcessing}
+                      className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                        isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                       title="Upload image with text"
                     >
                       <Camera className="w-5 h-5" />
                     </button>
                     <button 
-                      className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors"
+                      disabled={isProcessing}
+                      className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                        isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                       title="Upload document"
                     >
                       <FileText className="w-5 h-5" />
@@ -115,9 +113,11 @@ const GrammarCheckPage = () => {
                   value={textInput}
                   onChange={(e) => {
                     setTextInput(e.target.value);
-                    setIsAnalyzed(false);
                   }}
-                  className="w-full p-4 min-h-[200px] rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-edumate-500 text-slate-800"
+                  disabled={isProcessing}
+                  className={`w-full p-4 min-h-[200px] rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-edumate-500 text-slate-800 ${
+                    isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   placeholder="Type or paste your text here for grammar analysis..."
                 ></textarea>
                 
@@ -127,14 +127,14 @@ const GrammarCheckPage = () => {
                   </div>
                   <button
                     onClick={analyzeText}
-                    disabled={isAnalyzed || textInput.trim() === ''}
+                    disabled={isProcessing || textInput.trim() === ''}
                     className={`px-4 py-2 rounded-lg font-medium ${
-                      isAnalyzed || textInput.trim() === ''
+                      isProcessing || textInput.trim() === ''
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'bg-edumate-500 text-white hover:bg-edumate-600'
                     } transition-colors`}
                   >
-                    Analyze Text
+                    {isProcessing ? 'Processing...' : 'Analyze Text'}
                   </button>
                 </div>
               </div>
@@ -142,13 +142,24 @@ const GrammarCheckPage = () => {
               <div className="glass-panel p-8">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-medium text-edumate-900">Corrected Text</h3>
-                  <button className="p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors" title="Copy corrected text">
+                  <button 
+                    onClick={handleCopyText}
+                    disabled={!isAnalyzed || isProcessing}
+                    className={`p-2 text-slate-600 hover:text-edumate-600 hover:bg-edumate-50 rounded-lg transition-colors ${
+                      !isAnalyzed || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`} 
+                    title="Copy corrected text"
+                  >
                     <Copy className="w-5 h-5" />
                   </button>
                 </div>
                 
                 <div className="bg-white p-6 rounded-lg border border-slate-100 min-h-[200px]">
-                  {isAnalyzed ? (
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center h-[168px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-edumate-500"></div>
+                    </div>
+                  ) : isAnalyzed ? (
                     renderCorrectedText()
                   ) : (
                     <div className="text-slate-400 flex flex-col items-center justify-center h-[168px] text-center">
@@ -165,7 +176,11 @@ const GrammarCheckPage = () => {
                 <div className="glass-panel p-8">
                   <h3 className="text-xl font-medium text-edumate-900 mb-6">Grammar Issues</h3>
                   
-                  {isAnalyzed ? (
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-edumate-500"></div>
+                    </div>
+                  ) : isAnalyzed ? (
                     <div className="space-y-4">
                       {corrections.map((correction, index) => (
                         <div key={index} className="bg-white p-4 rounded-lg border border-slate-100">

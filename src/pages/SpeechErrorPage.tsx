@@ -1,19 +1,40 @@
 
-import { useState } from 'react';
 import { ArrowLeft, Mic, Play, SkipForward } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
+import { useSpeechError } from '@/hooks/useSpeechError';
+import { practiceSentences, getErrorAudio } from '@/services/speechErrorService';
+import { useToast } from '@/hooks/use-toast';
 
 const SpeechErrorPage = () => {
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const { 
+    analysis, 
+    selectedWord, 
+    isRecording, 
+    isProcessing,
+    startRecording,
+    stopRecording,
+    selectWord,
+    resetAnalysis
+  } = useSpeechError();
   
-  const exampleSentence = "The beautiful mountain range was visible from the kitchen window.";
-  const wordsWithErrors = ["mountain", "visible"];
+  const { toast } = useToast();
+  
+  const playAudio = (word: string, isCorrect: boolean = true) => {
+    // In a real implementation, this would play the audio
+    // For now, we'll just show a toast
+    toast({
+      title: isCorrect ? "Correct Pronunciation" : "Your Pronunciation",
+      description: `Playing audio for "${word}"`,
+    });
+  };
   
   const renderSentenceWithHighlights = () => {
-    return exampleSentence.split(' ').map((word, index) => {
+    if (!analysis) return "Record your speech to see analysis";
+    
+    return analysis.sentence.split(' ').map((word, index) => {
       const cleanWord = word.replace(/[.,!?]/g, '');
-      const hasError = wordsWithErrors.includes(cleanWord);
+      const hasError = analysis.errorWords.includes(cleanWord);
       const isSelected = cleanWord === selectedWord;
       
       return (
@@ -28,12 +49,24 @@ const SpeechErrorPage = () => {
               ? 'bg-edumate-100 text-edumate-700' 
               : ''
           }`}
-          onClick={() => hasError ? setSelectedWord(cleanWord) : null}
+          onClick={() => hasError ? selectWord(cleanWord) : null}
         >
           {word}{' '}
         </span>
       );
     });
+  };
+  
+  const handlePracticeSentence = (sentence: string) => {
+    toast({
+      title: "Practice Mode",
+      description: "Recording will start in 3 seconds. Read the sentence aloud.",
+    });
+    
+    // In a real implementation, this would start recording after a countdown
+    setTimeout(() => {
+      startRecording();
+    }, 3000);
   };
 
   return (
@@ -62,20 +95,44 @@ const SpeechErrorPage = () => {
                 
                 <div className="bg-white p-6 rounded-lg border border-slate-100 mb-6">
                   <p className="text-lg text-slate-800 leading-relaxed">
-                    {renderSentenceWithHighlights()}
+                    {isRecording ? (
+                      <span className="text-edumate-500 animate-pulse">Recording your speech...</span>
+                    ) : isProcessing ? (
+                      <span className="text-slate-500">Processing your speech...</span>
+                    ) : (
+                      renderSentenceWithHighlights()
+                    )}
                   </p>
-                  <div className="mt-4 text-sm text-slate-500 flex items-center">
-                    <Mic className="w-4 h-4 mr-1" /> 
-                    Speech sample recorded 2 minutes ago
-                  </div>
+                  {analysis && (
+                    <div className="mt-4 text-sm text-slate-500 flex items-center">
+                      <Mic className="w-4 h-4 mr-1" /> 
+                      Speech sample recorded
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex space-x-4">
-                  <button className="px-4 py-2 bg-edumate-500 text-white rounded-lg hover:bg-edumate-600 transition-colors flex items-center">
+                  <button 
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isProcessing}
+                    className={`px-4 py-2 ${
+                      isRecording 
+                        ? 'bg-red-500 hover:bg-red-600' 
+                        : 'bg-edumate-500 hover:bg-edumate-600'
+                    } text-white rounded-lg transition-colors flex items-center ${
+                      isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
                     <Mic className="w-4 h-4 mr-2" />
-                    Record New
+                    {isRecording ? 'Stop Recording' : 'Record New'}
                   </button>
-                  <button className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center">
+                  <button 
+                    onClick={resetAnalysis}
+                    disabled={!analysis || isRecording || isProcessing}
+                    className={`px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center ${
+                      !analysis || isRecording || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
                     <SkipForward className="w-4 h-4 mr-2" />
                     Skip to Next
                   </button>
@@ -85,19 +142,21 @@ const SpeechErrorPage = () => {
               <div className="glass-panel p-8">
                 <h3 className="text-xl font-medium text-edumate-900 mb-4">Practice Sentences</h3>
                 <div className="space-y-3">
-                  {[
-                    "She recognized the symptoms of the illness immediately.",
-                    "The necessary documents were signed and delivered yesterday.",
-                    "The temperature fluctuated throughout the week."
-                  ].map((sentence, index) => (
+                  {practiceSentences.slice(0, 3).map((sentence, index) => (
                     <div key={index} className="bg-white p-4 rounded-lg border border-slate-100 hover:border-edumate-200 transition-colors">
                       <p className="text-slate-700">{sentence}</p>
                       <div className="flex items-center justify-between mt-2">
-                        <button className="flex items-center text-sm text-edumate-500 hover:text-edumate-600 transition-colors">
+                        <button 
+                          onClick={() => playAudio(sentence)}
+                          className="flex items-center text-sm text-edumate-500 hover:text-edumate-600 transition-colors"
+                        >
                           <Play className="w-4 h-4 mr-1" />
                           Listen
                         </button>
-                        <button className="flex items-center text-sm text-edumate-500 hover:text-edumate-600 transition-colors">
+                        <button 
+                          onClick={() => handlePracticeSentence(sentence)}
+                          className="flex items-center text-sm text-edumate-500 hover:text-edumate-600 transition-colors"
+                        >
                           <Mic className="w-4 h-4 mr-1" />
                           Practice
                         </button>
@@ -110,38 +169,22 @@ const SpeechErrorPage = () => {
             
             <div className="glass-panel p-8">
               <h3 className="text-xl font-medium text-edumate-900 mb-6">
-                {selectedWord ? `Correction for "${selectedWord}"` : 'Select a highlighted word for correction'}
+                {selectedWord && analysis ? `Correction for "${selectedWord}"` : 'Select a highlighted word for correction'}
               </h3>
               
-              {selectedWord ? (
+              {selectedWord && analysis?.errors[selectedWord] ? (
                 <div className="space-y-6">
                   <div className="bg-edumate-50 p-6 rounded-lg">
                     <h4 className="text-lg font-medium text-edumate-800 mb-3">Pronunciation Guide</h4>
-                    {selectedWord === "mountain" ? (
-                      <>
-                        <p className="text-slate-700 mb-4">
-                          <span className="font-medium">Correct pronunciation:</span> /ˈmaʊntən/ (moun-tuhn)
-                        </p>
-                        <p className="text-slate-700 mb-4">
-                          <span className="font-medium">Your pronunciation:</span> /ˈmaʊnteɪn/ (moun-tayn)
-                        </p>
-                        <p className="text-slate-700">
-                          The second syllable should be a schwa sound (ə), not a long "a" sound.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-slate-700 mb-4">
-                          <span className="font-medium">Correct pronunciation:</span> /ˈvɪzəbəl/ (viz-uh-buhl)
-                        </p>
-                        <p className="text-slate-700 mb-4">
-                          <span className="font-medium">Your pronunciation:</span> /ˈvɪsəbəl/ (vis-uh-buhl)
-                        </p>
-                        <p className="text-slate-700">
-                          The "s" in "visible" should be pronounced as a "z" sound.
-                        </p>
-                      </>
-                    )}
+                    <p className="text-slate-700 mb-4">
+                      <span className="font-medium">Correct pronunciation:</span> {analysis.errors[selectedWord].correctPronunciation}
+                    </p>
+                    <p className="text-slate-700 mb-4">
+                      <span className="font-medium">Your pronunciation:</span> {analysis.errors[selectedWord].userPronunciation}
+                    </p>
+                    <p className="text-slate-700">
+                      {analysis.errors[selectedWord].explanation}
+                    </p>
                   </div>
                   
                   <div>
@@ -150,7 +193,10 @@ const SpeechErrorPage = () => {
                       <div className="bg-white p-4 rounded-lg border border-slate-100">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-700">Correct pronunciation</span>
-                          <button className="flex items-center text-edumate-500 hover:text-edumate-600 transition-colors">
+                          <button 
+                            onClick={() => playAudio(selectedWord, true)}
+                            className="flex items-center text-edumate-500 hover:text-edumate-600 transition-colors"
+                          >
                             <Play className="w-4 h-4 mr-1" />
                             Play
                           </button>
@@ -159,7 +205,10 @@ const SpeechErrorPage = () => {
                       <div className="bg-white p-4 rounded-lg border border-slate-100">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-700">Your pronunciation</span>
-                          <button className="flex items-center text-edumate-500 hover:text-edumate-600 transition-colors">
+                          <button 
+                            onClick={() => playAudio(selectedWord, false)}
+                            className="flex items-center text-edumate-500 hover:text-edumate-600 transition-colors"
+                          >
                             <Play className="w-4 h-4 mr-1" />
                             Play
                           </button>
@@ -170,7 +219,19 @@ const SpeechErrorPage = () => {
                   
                   <div>
                     <h4 className="text-lg font-medium text-edumate-800 mb-3">Practice</h4>
-                    <button className="w-full py-3 bg-edumate-500 text-white rounded-lg hover:bg-edumate-600 transition-colors flex items-center justify-center">
+                    <button 
+                      onClick={() => {
+                        toast({
+                          title: "Practice Word",
+                          description: `Say "${selectedWord}" clearly into your microphone.`,
+                        });
+                        setTimeout(() => startRecording(), 2000);
+                      }}
+                      disabled={isRecording || isProcessing}
+                      className={`w-full py-3 bg-edumate-500 text-white rounded-lg hover:bg-edumate-600 transition-colors flex items-center justify-center ${
+                        isRecording || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
                       <Mic className="w-4 h-4 mr-2" />
                       Practice this word
                     </button>
@@ -196,7 +257,7 @@ const SpeechErrorPage = () => {
                     </svg>
                   </div>
                   <p className="text-slate-600 max-w-xs">
-                    Click on a highlighted word in the sentence to see detailed pronunciation guidance
+                    {analysis ? 'Click on a highlighted word in the sentence to see detailed pronunciation guidance' : 'Record your speech to start analysis'}
                   </p>
                 </div>
               )}
