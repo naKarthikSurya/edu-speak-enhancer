@@ -1,11 +1,15 @@
 
-import { ArrowLeft, Mic, Play, Square, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Mic, Play, Square, RefreshCw, Volume2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import Header from '@/components/Header';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { practiceExamples, getAudioForPhrase } from '@/services/speechService';
+import { practiceExamples, getAudioForPhrase, availableVoices } from '@/services/speechService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 const ChorusPage = () => {
   const { 
@@ -20,12 +24,46 @@ const ChorusPage = () => {
   
   const { toast } = useToast();
   
-  const playAudio = (phrase: string) => {
-    // In a real implementation, this would play the audio
-    // For now, we'll just show a toast
+  // New state variables for text-to-speech functionality
+  const [inputText, setInputText] = useState("");
+  const [selectedVoice, setSelectedVoice] = useState(availableVoices[0].id);
+  const [speechSpeed, setSpeechSpeed] = useState(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  // Function to play the text with selected voice and speed
+  const playText = () => {
+    if (!inputText.trim()) {
+      toast({
+        title: "Empty Text",
+        description: "Please enter some text to read aloud.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsPlaying(true);
+    
+    // Get the selected voice object
+    const voice = availableVoices.find(v => v.id === selectedVoice);
+    
     toast({
       title: "Playing Audio",
-      description: `"${phrase.substring(0, 30)}..."`,
+      description: `Reading with ${voice?.name} voice at ${speechSpeed}x speed`,
+    });
+    
+    // Simulate text to speech playback
+    setTimeout(() => {
+      setIsPlaying(false);
+    }, 3000); // Simulate 3 seconds of playback
+  };
+  
+  // Function to play provided examples
+  const playExample = (phrase: string) => {
+    setInputText(phrase);
+    
+    toast({
+      title: "Example Selected",
+      description: "Example loaded into the text editor",
     });
   };
 
@@ -44,76 +82,72 @@ const ChorusPage = () => {
           <div className="mb-12">
             <h1 className="text-3xl md:text-4xl font-medium text-edumate-900 mb-4">Chorus</h1>
             <p className="text-xl text-slate-600 max-w-3xl">
-              Enhance your pronunciation and fluency with real-time analysis and feedback as you speak.
+              Listen to text read aloud in different voices and speeds to enhance your language learning experience.
             </p>
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <div className="glass-panel p-8 flex flex-col items-center">
-              <div className="w-full mb-8">
-                <div className="bg-edumate-50 rounded-xl p-6 text-center">
-                  <p className="text-lg text-edumate-700 mb-4">
-                    {isRecording 
-                      ? `Recording: ${recordingTime}s` 
-                      : isProcessing
-                        ? "Processing your speech..."
-                        : "Press the microphone button to start speaking"}
-                  </p>
-                  <div className={`w-full h-24 rounded-lg bg-white flex items-center justify-center ${isRecording ? 'animate-pulse' : ''}`}>
-                    {isRecording ? (
-                      <div className="flex space-x-1">
-                        {[...Array(5)].map((_, i) => (
-                          <div 
-                            key={i}
-                            className="w-2 bg-edumate-500 rounded-full animate-pulse" 
-                            style={{
-                              height: `${20 + Math.random() * 40}px`,
-                              animationDelay: `${i * 0.1}s`
-                            }}
-                          ></div>
-                        ))}
-                      </div>
-                    ) : isProcessing ? (
-                      <div className="flex flex-col items-center">
-                        <RefreshCw className="w-8 h-8 text-edumate-500 animate-spin mb-2" />
-                        <span className="text-slate-500">Analyzing your speech...</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">Audio visualization will appear here</span>
-                    )}
-                  </div>
+            <div className="glass-panel p-8 flex flex-col">
+              <h3 className="text-xl font-medium text-edumate-900 mb-4">Enter text to read aloud</h3>
+              
+              <Textarea 
+                placeholder="Type or paste text here..." 
+                className="min-h-40 mb-6"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Voice</label>
+                  <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableVoices.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          {voice.name} ({voice.accent})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Speech Speed: {speechSpeed.toFixed(1)}x
+                  </label>
+                  <Slider 
+                    value={[speechSpeed]} 
+                    min={0.5} 
+                    max={2.0} 
+                    step={0.1}
+                    onValueChange={(value) => setSpeechSpeed(value[0])} 
+                    className="my-4"
+                  />
                 </div>
               </div>
               
-              <div className="flex justify-center space-x-4 mb-8">
-                {feedback ? (
-                  <Button 
-                    variant="outline" 
-                    onClick={resetRecording}
-                    className="px-6"
-                  >
-                    Try Again
-                  </Button>
+              <Button
+                onClick={playText}
+                disabled={isPlaying || !inputText.trim()}
+                className="self-start mb-8"
+              >
+                {isPlaying ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Playing...
+                  </>
                 ) : (
-                  <Button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                      isRecording 
-                        ? 'bg-red-500 hover:bg-red-600' 
-                        : 'bg-edumate-500 hover:bg-edumate-600'
-                    }`}
-                    disabled={isProcessing}
-                  >
-                    {isRecording ? (
-                      <Square className="w-6 h-6 text-white" />
-                    ) : (
-                      <Mic className="w-6 h-6 text-white" />
-                    )}
-                  </Button>
+                  <>
+                    <Volume2 className="w-4 h-4 mr-2" />
+                    Read Aloud
+                  </>
                 )}
-              </div>
+              </Button>
               
-              <div className="w-full">
+              <div className="mt-auto">
                 <h3 className="text-xl font-medium text-edumate-900 mb-4">Try these examples:</h3>
                 <div className="space-y-3">
                   {practiceExamples.map((phrase, index) => (
@@ -121,10 +155,10 @@ const ChorusPage = () => {
                       <p className="text-slate-700">{phrase}</p>
                       <button 
                         className="flex items-center text-sm text-edumate-500 mt-2 hover:text-edumate-600 transition-colors"
-                        onClick={() => playAudio(phrase)}
+                        onClick={() => playExample(phrase)}
                       >
                         <Play className="w-4 h-4 mr-1" />
-                        Listen
+                        Use this example
                       </button>
                     </div>
                   ))}
@@ -186,7 +220,7 @@ const ChorusPage = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-slate-500">Record your speech to see analysis and feedback</p>
+                    <p className="text-slate-500">Record your speech or use text-to-speech to see analysis and feedback</p>
                   </div>
                 )}
               </div>
@@ -196,15 +230,15 @@ const ChorusPage = () => {
                 <ol className="space-y-4">
                   <li className="flex">
                     <span className="flex-shrink-0 h-6 w-6 rounded-full bg-edumate-100 flex items-center justify-center mr-3 mt-0.5 text-edumate-500 font-medium">1</span>
-                    <p className="text-slate-700">Speak clearly into your microphone when recording</p>
+                    <p className="text-slate-700">Enter text or choose an example from the list</p>
                   </li>
                   <li className="flex">
                     <span className="flex-shrink-0 h-6 w-6 rounded-full bg-edumate-100 flex items-center justify-center mr-3 mt-0.5 text-edumate-500 font-medium">2</span>
-                    <p className="text-slate-700">Our AI analyzes your pronunciation, fluency, and rhythm</p>
+                    <p className="text-slate-700">Select a voice and adjust the speech speed</p>
                   </li>
                   <li className="flex">
                     <span className="flex-shrink-0 h-6 w-6 rounded-full bg-edumate-100 flex items-center justify-center mr-3 mt-0.5 text-edumate-500 font-medium">3</span>
-                    <p className="text-slate-700">Receive instant feedback and suggestions to improve</p>
+                    <p className="text-slate-700">Click "Read Aloud" to hear the text spoken in the selected voice</p>
                   </li>
                 </ol>
               </div>
